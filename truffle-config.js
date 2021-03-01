@@ -6,7 +6,19 @@ module.exports = {
   contracts_build_directory: path.join(__dirname, "client/src/contracts"),
   networks: {
     develop: {
-      port: 8545
+      port: 7545
     }
+  },
+
+  compilers: {
+    solc: {
+      version: "0.6.11",
+      settings: {
+        optimizer: {
+          enabled: false,
+          runs: 200
+        },
+      }
+    },
   }
 };
