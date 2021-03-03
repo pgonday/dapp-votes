@@ -20,3 +20,15 @@
 .App-link {
   color: #09d3ac;
 }
+
+.full {
+  width: 100%;
+}
+
+.container-fluid {
+  margin: 10px;
+}
+
+form {
+  width: 90%;
+}

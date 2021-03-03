@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.6.11;
+pragma experimental ABIEncoderV2;
  
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -27,14 +28,15 @@ contract Voting is Ownable {
     }
     
     
-    Proposal[] proposals;
-    mapping(address => Voter) voters;
-    
+    Proposal[] private proposals;
+    mapping(address => Voter) private voters;    
+    address[] private whitelist;
+
     // I assume that we have only one winner and can't have draw...
     uint private maxVoteCount = 0;
     uint private winningProposalId;
     
-    WorkflowStatus workflowStatus = WorkflowStatus.RegisteringVoters;
+    WorkflowStatus public workflowStatus = WorkflowStatus.RegisteringVoters;
     
 
     event VoterRegistered(address voterAddress);
@@ -55,6 +57,7 @@ contract Voting is Ownable {
         require(!voters[_address].isRegistered, "Already registered");
 
         voters[_address].isRegistered = true;
+        whitelist.push(_address);
         
         emit VoterRegistered(_address);
     }
@@ -108,13 +111,8 @@ contract Voting is Ownable {
     }
 
 
-    function getStatus() external view returns (WorkflowStatus) {
-        return workflowStatus;
-    }
-
-
     // ---------- Electors functions ----------
-    
+
     function propose(string memory _description) public {
         require(workflowStatus == WorkflowStatus.ProposalsRegistrationStarted, "Proposal registration is not started or is closeed.");
         require(isWhitelisted(msg.sender), "You are not registered.");
@@ -153,11 +151,26 @@ contract Voting is Ownable {
     
 
     function getWinningProposal() public view returns (uint _proposalId, string memory _description, uint _voteCount) {
-        require(workflowStatus == WorkflowStatus.VotesTallied, "Voting session is not ended.");
+        require(workflowStatus == WorkflowStatus.VotingSessionEnded, "Voting session is not ended.");
         
         Proposal memory proposal = proposals[winningProposalId];
         
         return (winningProposalId, proposal.description, proposal.voteCount);
+    }
+
+
+    function getWhitelist() external view returns (address[] memory) {
+        return whitelist;
+    }
+
+
+    function getProposals() external view returns (string[] memory) {
+        string[] memory props = new string[](proposals.length);
+        for (uint i = 0; i < proposals.length; i++) {
+            props[i] = (proposals[i].description);
+        }
+
+        return props;
     }
 
 } 
