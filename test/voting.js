@@ -20,6 +20,7 @@ contract("Voting", accounts => {
   const errOwnableOwner = "Ownable: caller is not the owner";
   const errAlreadyRegistered = "Already registered";
   const errNotRegistered = "You are not registered.";
+  const errAlreadyVoted = "You have already voted.";
 
   const errWFRegisteringVoters = "WorkflowStatus must be RegisteringVoters to call this function.";
   const errWFProposalsRegistrationStarted = "WorkflowStatus must be ProposalsRegistrationStarted to call this function.";
@@ -47,6 +48,92 @@ contract("Voting", accounts => {
     await expectRevert(this.VotingInstance.tallyVotes({from: addr1}), errOwnableOwner);
 
     await this.VotingInstance.startProposalsRegistration({from: owner});
+  });
+
+
+  it("startProposalsRegistration called only for correct workflow status", async () => {
+    await this.VotingInstance.startProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.startProposalsRegistration({from: owner}), errWFRegisteringVoters);
+
+    await this.VotingInstance.closeProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.startProposalsRegistration({from: owner}), errWFRegisteringVoters);
+
+    await this.VotingInstance.startVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.startProposalsRegistration({from: owner}), errWFRegisteringVoters);
+
+    await this.VotingInstance.closeVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.startProposalsRegistration({from: owner}), errWFRegisteringVoters);
+
+    await this.VotingInstance.tallyVotes({from: owner});
+    await expectRevert(this.VotingInstance.startProposalsRegistration({from: owner}), errWFRegisteringVoters);
+  });
+
+
+  it("closeProposalsRegistration called only for correct workflow status", async () => {
+    await this.VotingInstance.startProposalsRegistration({from: owner});
+    
+    await this.VotingInstance.closeProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.closeProposalsRegistration({from: owner}), errWFProposalsRegistrationStarted);
+
+    await this.VotingInstance.startVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.closeProposalsRegistration({from: owner}), errWFProposalsRegistrationStarted);
+
+    await this.VotingInstance.closeVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.closeProposalsRegistration({from: owner}), errWFProposalsRegistrationStarted);
+
+    await this.VotingInstance.tallyVotes({from: owner});
+    await expectRevert(this.VotingInstance.closeProposalsRegistration({from: owner}), errWFProposalsRegistrationStarted);
+  });
+
+
+  it("startVotingSession called only for correct workflow status", async () => {
+    await this.VotingInstance.startProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.startVotingSession({from: owner}), errWFProposalsRegistrationEnded);
+
+    await this.VotingInstance.closeProposalsRegistration({from: owner});
+
+    await this.VotingInstance.startVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.startVotingSession({from: owner}), errWFProposalsRegistrationEnded);
+
+    await this.VotingInstance.closeVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.startVotingSession({from: owner}), errWFProposalsRegistrationEnded);
+
+    await this.VotingInstance.tallyVotes({from: owner});
+    await expectRevert(this.VotingInstance.startVotingSession({from: owner}), errWFProposalsRegistrationEnded);
+  });
+
+
+  it("closeVotingSession called only for correct workflow status", async () => {
+    await this.VotingInstance.startProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.closeVotingSession({from: owner}), errWFVotingSessionStarted);
+
+    await this.VotingInstance.closeProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.closeVotingSession({from: owner}), errWFVotingSessionStarted);
+
+    await this.VotingInstance.startVotingSession({from: owner});    
+
+    await this.VotingInstance.closeVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.closeVotingSession({from: owner}), errWFVotingSessionStarted);
+
+    await this.VotingInstance.tallyVotes({from: owner});
+    await expectRevert(this.VotingInstance.closeVotingSession({from: owner}), errWFVotingSessionStarted);
+  });
+
+
+  it("tallyVotes called only for correct workflow status", async () => {
+    await this.VotingInstance.startProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.tallyVotes({from: owner}), errWFVotingSessionEnded);
+
+    await this.VotingInstance.closeProposalsRegistration({from: owner});
+    await expectRevert(this.VotingInstance.tallyVotes({from: owner}), errWFVotingSessionEnded);
+
+    await this.VotingInstance.startVotingSession({from: owner});
+    await expectRevert(this.VotingInstance.tallyVotes({from: owner}), errWFVotingSessionEnded);
+
+    await this.VotingInstance.closeVotingSession({from: owner});    
+
+    await this.VotingInstance.tallyVotes({from: owner});
+    await expectRevert(this.VotingInstance.tallyVotes({from: owner}), errWFVotingSessionEnded);
   });
 
 
@@ -91,5 +178,19 @@ contract("Voting", accounts => {
     expect(proposals[0]).to.be.equal('Proposal 1');
   });
 
-  
+
+  it ('user can only vote once', async () => {
+    await this.VotingInstance.addToWhitelist(addr1, {from: owner});
+    
+    await this.VotingInstance.startProposalsRegistration({from: owner});
+
+    await this.VotingInstance.propose('Proposal 1', { from: addr1 });
+
+    await this.VotingInstance.closeProposalsRegistration({from: owner});
+    await this.VotingInstance.startVotingSession({from: owner});
+    
+    await this.VotingInstance.vote(0, {from: addr1});
+    await expectRevert(this.VotingInstance.vote(0, { from: addr1 }), errAlreadyVoted);
+  });
+
 });
