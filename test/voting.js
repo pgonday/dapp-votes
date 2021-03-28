@@ -193,4 +193,25 @@ contract("Voting", accounts => {
     await expectRevert(this.VotingInstance.vote(0, { from: addr1 }), errAlreadyVoted);
   });
 
+  it ('nominal case', async () => {
+    await this.VotingInstance.addToWhitelist(owner, {from: owner});
+    await this.VotingInstance.addToWhitelist(addr1, {from: owner});
+
+    await this.VotingInstance.startProposalsRegistration({from: owner});
+    await this.VotingInstance.propose('Proposal 1', { from: addr1 });
+    await this.VotingInstance.propose('Proposal 2', { from: owner });
+    await this.VotingInstance.closeProposalsRegistration({from: owner});
+
+    await this.VotingInstance.startVotingSession({from: owner});
+    await this.VotingInstance.vote(1, {from: addr1});
+    await this.VotingInstance.vote(1, {from: owner});
+    await this.VotingInstance.closeVotingSession({from: owner});
+
+    const result = await this.VotingInstance.getWinningProposal();
+    const { 0:id, 1:description, 2:count } = result;
+    expect(id).to.be.bignumber.equal(new BN(1));
+    expect(description).to.be.equal('Proposal 2');
+    expect(count).to.be.bignumber.equal(new BN(2));
+  });
+
 });
